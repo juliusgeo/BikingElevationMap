@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[81]:
+# In[2]:
 
 
 import geopandas as gpd
@@ -28,26 +28,25 @@ get_ipython().run_line_magic('matplotlib', 'inline')
 
 
 
-# In[90]:
+# In[36]:
 
 
-leftbound = -76.4092
-rightbound = -76.3891
-upperbound = -9.8721
-lowerbound = -9.9083
+leftbound = -75.6768
+rightbound = -75.6590
+upperbound = 40.1321
+lowerbound = 40.1166
 bbox = [(leftbound,lowerbound ), (rightbound,lowerbound), (rightbound,upperbound), (leftbound,upperbound)]
 poly = shapely.geometry.Polygon(bbox)
 df = geopandas_osm.osm.query_osm('way', poly, recurse='down')
-df.to_file("orig_map.shp")
 df.plot()
 
 
-# In[83]:
+# In[37]:
 
 
 arr=["highway","residential", "primary", "secondary","tertiary","unclassified", "cycleway"]
 df=df[df.highway.isin(arr)]
-df["geometry"]
+df.plot()
 
 
 # In[ ]:
@@ -56,7 +55,7 @@ df["geometry"]
 
 
 
-# In[102]:
+# In[108]:
 
 
 newdata = gpd.GeoDataFrame()
@@ -72,19 +71,19 @@ junctions = gpd.GeoDataFrame()
 junctions["geometry"]=None
 
 
-# In[5]:
+# In[9]:
 
 
 elevations = dict()
 
 
-# In[6]:
+# In[10]:
 
 
 print elevations
 
 
-# In[37]:
+# In[79]:
 
 
 all_coords_list = []
@@ -93,7 +92,7 @@ for geometry in df["geometry"]:
         all_coords_list.append(coord)
 
 
-# In[85]:
+# In[109]:
 
 
 def is_intersection(val):
@@ -149,6 +148,12 @@ def get_anchor_point(point1, point2, elev_diff):
 def reproject_segment(seg, anchor, end, elev_diff):
     #print "Beginning points: ",anchor, seg, end
     new_points = []
+    cur_point_elev = get_elev(anchor)
+    cur_point_elev_diff = round((cur_point_elev-min(elev1, elev2))*.0005,7)
+    print(cur_point_elev_diff)
+    p = get_anchor_point(anchor,end, cur_point_elev_diff)
+    elev_point_data.loc[elev_point_data.shape[0]] = [cur_point_elev-min(elev1, elev2), shapely.geometry.point.Point(p)]
+    new_points.append(p)
     distance_arr = []
     for point in seg:
         a = get_vector(point, anchor)
@@ -162,10 +167,18 @@ def reproject_segment(seg, anchor, end, elev_diff):
         p = (anchor[0]+c[0], anchor[1]+c[1])
         distance_arr.append(distance(p, anchor))
         cur_point_elev = get_elev(point)
-        cur_point_elev_diff = round((cur_point_elev-max(elev1, elev2))*.001,7)
+        cur_point_elev_diff = round((cur_point_elev-min(elev1, elev2))*.0005,7)
         p = get_anchor_point(p,end, cur_point_elev_diff)
-        elev_point_data.loc[elev_point_data.shape[0]] = [cur_point_elev-max(elev1, elev2), shapely.geometry.point.Point(p)]
+        elev_point_data.loc[elev_point_data.shape[0]] = [cur_point_elev-min(elev1, elev2), shapely.geometry.point.Point(p)]
         new_points.append(p)
+    
+    
+    cur_point_elev = get_elev(end)
+    cur_point_elev_diff = round((cur_point_elev-min(elev1, elev2))*.0005,7)
+    print(cur_point_elev_diff)
+    p = get_anchor_point(end,anchor, cur_point_elev_diff)
+    elev_point_data.loc[elev_point_data.shape[0]] = [cur_point_elev-min(elev1, elev2), shapely.geometry.point.Point(p)]
+    new_points.append(p)
     
     zipped = zip(new_points, distance_arr)
     sorted_zip = sorted(zipped, key=lambda pair: pair[1])
@@ -175,6 +188,17 @@ def reproject_segment(seg, anchor, end, elev_diff):
     
     #print "Projected points: ", new_points
     return new_points
+def append_segment(name, seg_arr):
+    if(len(seg_arr) > 2):
+        poly = shapely.geometry.Polygon(seg_arr[:][:])
+        line = shapely.geometry.LineString(seg_arr[:])
+        try:
+            newdata.loc[newdata.shape[0]] = [name, poly]
+            streetnewdata.loc[streetnewdata.shape[0]] = [name, line]
+            junctions.loc[junctions.shape[0]] = [shapely.geometry.point.Point(seg_arr[0])]
+            junctions.loc[junctions.shape[0]] = [shapely.geometry.point.Point(seg_arr[-1])]
+        except:
+            return
 
 
 # In[ ]:
@@ -195,7 +219,7 @@ def reproject_segment(seg, anchor, end, elev_diff):
 
 
 
-# In[106]:
+# In[110]:
 
 
 new_index = -1
@@ -220,8 +244,9 @@ for index, geometry, name in zip(df.index.values, df["geometry"], df["name"]):
             point2 = coords_list[intersection_list[1]]
             elev1 = get_elev(point1)
             elev2 = get_elev(point2)
-            elev_diff=round((elev1-elev2)*.001,7)
+            elev_diff=round((elev1-elev2)*.0001,7)
             seg_arr = reproject_segment(coords_list[1:-2], point1, point2, elev_diff)
+            append_segment(name, seg_arr)
         else:
             prev_index = 0    
             for i in intersection_list[1:-1]:
@@ -232,24 +257,16 @@ for index, geometry, name in zip(df.index.values, df["geometry"], df["name"]):
                 elev2 = get_elev(point2)
                 elev_diff=round((elev1-elev2)*.0001,7)
                 seg_arr = reproject_segment(coords_list[prev_index+1:i-1], point1, point2, elev_diff)
+                append_segment(name, seg_arr)
                 prev_index = i
+                
 
     else:
-        elev_diff=round(get_elev_diff(coords[0], coords[1])*.001,7)
+        elev_diff=round(get_elev_diff(coords[0], coords[1])*.0001,7)
         seg_arr = coords_list  
         anchor = get_anchor_point(coords[0],coords[1], elev_diff)
         seg_arr.append(anchor)
-
-    if(len(seg_arr) > 2):
-        poly = shapely.geometry.Polygon(seg_arr[:][:])
-        line = shapely.geometry.LineString(seg_arr[1:])
-        try:
-            newdata.loc[newdata.shape[0]] = [name, poly]
-            streetnewdata.loc[streetnewdata.shape[0]] = [name, line]
-            junctions.loc[junctions.shape[0]] = [shapely.geometry.point.Point(seg_arr[0])]
-            junctions.loc[junctions.shape[0]] = [shapely.geometry.point.Point(seg_arr[-1])]
-        except:
-            continue
+        append_segment(name, seg_arr)
 
 
 # In[ ]:
@@ -258,14 +275,14 @@ for index, geometry, name in zip(df.index.values, df["geometry"], df["name"]):
 
 
 
-# In[93]:
+# In[113]:
 
 
 base = streetnewdata.plot(color='white', edgecolor='black')
 newdata.plot(ax=base, color='green');
 df.plot(ax=base, color="orange")
-for elev, point in zip(elev_point_data["elevation"][::50], elev_point_data["geometry"][::50]):
-    base.annotate(str(round(elev*1000)), (point.x, point.y))
+for elev, point in zip(elev_point_data["elevation"][::10], elev_point_data["geometry"][::10]):
+    base.annotate(str(round(elev)), (point.x, point.y))
 
 
 # In[ ]:
@@ -274,7 +291,7 @@ for elev, point in zip(elev_point_data["elevation"][::50], elev_point_data["geom
 
 
 
-# In[112]:
+# In[114]:
 
 
 import os
@@ -286,12 +303,6 @@ newdata.to_file("out_map.geojson", driver="GeoJSON")
 streetnewdata.to_file("out_street_map.geojson", driver="GeoJSON")
 elev_point_data.to_file("out_elev_map.geojson", driver="GeoJSON")
 junctions.to_file("junctions.geojson", driver="GeoJSON")
-
-
-# In[ ]:
-
-
-
 
 
 # In[ ]:
