@@ -55,7 +55,7 @@ df.plot()
 
 
 
-# In[27]:
+# In[59]:
 
 
 newdata = gpd.GeoDataFrame()
@@ -92,7 +92,7 @@ for geometry in df["geometry"]:
         all_coords_list.append(coord)
 
 
-# In[24]:
+# In[56]:
 
 
 def is_intersection(val):
@@ -145,14 +145,14 @@ def get_anchor_point(point1, point2, elev_diff):
     anchor = (-yv, xv)
     anchor = [i*elev_diff/distance(point1, point2) for i in anchor] 
     return (point1[0]+anchor[0], point1[1]+anchor[1])
-def reproject_segment(seg, anchor, end, elev_diff):
+def reproject_segment(seg, anchor, end, elev_diff, elev1, elev2):
     #print "Beginning points: ",anchor, seg, end
     new_points = [anchor]
     cur_point_elev = get_elev(anchor)
     cur_point_elev_diff = round((cur_point_elev-min(elev1, elev2))*.0005,7)
     if(cur_point_elev_diff != 0.0):
         p = get_anchor_point(anchor,end, cur_point_elev_diff)
-        elev_point_data.loc[elev_point_data.shape[0]] = [cur_point_elev-min(elev1, elev2), shapely.geometry.point.Point(p)]
+        elev_point_data.loc[elev_point_data.shape[0]] = [cur_point_elev, shapely.geometry.point.Point(p)]
         new_points.append(p)
     print(cur_point_elev_diff)
     
@@ -171,7 +171,7 @@ def reproject_segment(seg, anchor, end, elev_diff):
         cur_point_elev = get_elev(point)
         cur_point_elev_diff = round((cur_point_elev-min(elev1, elev2))*.0005,7)
         p = get_anchor_point(p,end, cur_point_elev_diff)
-        elev_point_data.loc[elev_point_data.shape[0]] = [cur_point_elev-min(elev1, elev2), shapely.geometry.point.Point(p)]
+        elev_point_data.loc[elev_point_data.shape[0]] = [cur_point_elev, shapely.geometry.point.Point(p)]
         new_points.append(p)
     
     
@@ -185,7 +185,7 @@ def reproject_segment(seg, anchor, end, elev_diff):
     print(cur_point_elev_diff)
     if(cur_point_elev_diff != 0.0):
         p = get_anchor_point(end,anchor, -1*cur_point_elev_diff)
-        elev_point_data.loc[elev_point_data.shape[0]] = [cur_point_elev-min(elev1, elev2), shapely.geometry.point.Point(p)]
+        elev_point_data.loc[elev_point_data.shape[0]] = [cur_point_elev, shapely.geometry.point.Point(p)]
         new_points.append(p)
     
     
@@ -224,7 +224,7 @@ def append_segment(name, seg_arr):
 
 
 
-# In[28]:
+# In[61]:
 
 
 new_index = -1
@@ -250,7 +250,7 @@ for index, geometry, name in zip(df.index.values, df["geometry"], df["name"]):
             elev1 = get_elev(point1)
             elev2 = get_elev(point2)
             elev_diff=round((elev1-elev2)*.0001,7)
-            seg_arr = reproject_segment(coords_list[1:-2], point1, point2, elev_diff)
+            seg_arr = reproject_segment(coords_list[1:-2], point1, point2, elev_diff, elev1, elev2)
             append_segment(name, seg_arr)
         else:
             prev_index = 0    
@@ -261,7 +261,7 @@ for index, geometry, name in zip(df.index.values, df["geometry"], df["name"]):
                 elev1 = get_elev(point1)
                 elev2 = get_elev(point2)
                 elev_diff=round((elev1-elev2)*.0001,7)
-                seg_arr = reproject_segment(coords_list[prev_index+1:i-1], point1, point2, elev_diff)
+                seg_arr = reproject_segment(coords_list[prev_index+1:i-1], point1, point2, elev_diff, elev1, elev2)
                 append_segment(name, seg_arr)
                 prev_index = i
                 
@@ -280,7 +280,7 @@ for index, geometry, name in zip(df.index.values, df["geometry"], df["name"]):
 
 
 
-# In[29]:
+# In[62]:
 
 
 base = streetnewdata.plot(color='white', edgecolor='black')
@@ -296,18 +296,22 @@ df.plot(ax=base, color="orange")
 
 
 
-# In[30]:
+# In[63]:
 
 
 import os
-os.remove("out_map.geojson")
-os.remove("out_street_map.geojson")
-os.remove("out_elev_map.geojson")
-os.remove("junctions.geojson")
+try:
+    os.remove("out_map.geojson")
+    os.remove("out_street_map.geojson")
+    os.remove("out_elev_map.geojson")
+    os.remove("junctions.geojson")
+except:
+    print("files don't exist")
 newdata.to_file("out_map.geojson", driver="GeoJSON")
 streetnewdata.to_file("out_street_map.geojson", driver="GeoJSON")
 elev_point_data.to_file("out_elev_map.geojson", driver="GeoJSON")
 junctions.to_file("junctions.geojson", driver="GeoJSON")
+print("files saved")
 
 
 # In[ ]:
