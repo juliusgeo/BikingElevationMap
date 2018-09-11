@@ -55,7 +55,7 @@ df.plot()
 
 
 
-# In[59]:
+# In[69]:
 
 
 newdata = gpd.GeoDataFrame()
@@ -92,7 +92,7 @@ for geometry in df["geometry"]:
         all_coords_list.append(coord)
 
 
-# In[56]:
+# In[74]:
 
 
 def is_intersection(val):
@@ -147,9 +147,13 @@ def get_anchor_point(point1, point2, elev_diff):
     return (point1[0]+anchor[0], point1[1]+anchor[1])
 def reproject_segment(seg, anchor, end, elev_diff, elev1, elev2):
     #print "Beginning points: ",anchor, seg, end
+    if(end[1] >= anchor[1]):
+        coeff = -1
+    else:
+        coeff = 1
     new_points = [anchor]
     cur_point_elev = get_elev(anchor)
-    cur_point_elev_diff = round((cur_point_elev-min(elev1, elev2))*.0005,7)
+    cur_point_elev_diff = coeff*round((cur_point_elev-min(elev1, elev2))*.0005,7)
     if(cur_point_elev_diff != 0.0):
         p = get_anchor_point(anchor,end, cur_point_elev_diff)
         elev_point_data.loc[elev_point_data.shape[0]] = [cur_point_elev, shapely.geometry.point.Point(p)]
@@ -169,7 +173,7 @@ def reproject_segment(seg, anchor, end, elev_diff, elev1, elev2):
         p = (anchor[0]+c[0], anchor[1]+c[1])
         distance_arr.append(distance(p, anchor))
         cur_point_elev = get_elev(point)
-        cur_point_elev_diff = round((cur_point_elev-min(elev1, elev2))*.0005,7)
+        cur_point_elev_diff = coeff*round((cur_point_elev-min(elev1, elev2))*.0005,7)
         p = get_anchor_point(p,end, cur_point_elev_diff)
         elev_point_data.loc[elev_point_data.shape[0]] = [cur_point_elev, shapely.geometry.point.Point(p)]
         new_points.append(p)
@@ -181,7 +185,7 @@ def reproject_segment(seg, anchor, end, elev_diff, elev1, elev2):
     new_points = [a[0] for a in sorted_zip]
     
     cur_point_elev = get_elev(end)
-    cur_point_elev_diff = round((cur_point_elev-min(elev1, elev2))*.0005,7)
+    cur_point_elev_diff = coeff*round((cur_point_elev-min(elev1, elev2))*.0005,7)
     print(cur_point_elev_diff)
     if(cur_point_elev_diff != 0.0):
         p = get_anchor_point(end,anchor, -1*cur_point_elev_diff)
@@ -224,7 +228,7 @@ def append_segment(name, seg_arr):
 
 
 
-# In[61]:
+# In[75]:
 
 
 new_index = -1
@@ -280,7 +284,7 @@ for index, geometry, name in zip(df.index.values, df["geometry"], df["name"]):
 
 
 
-# In[62]:
+# In[76]:
 
 
 base = streetnewdata.plot(color='white', edgecolor='black')
@@ -296,7 +300,7 @@ df.plot(ax=base, color="orange")
 
 
 
-# In[63]:
+# In[77]:
 
 
 import os
