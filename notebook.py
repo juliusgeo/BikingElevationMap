@@ -28,11 +28,11 @@ get_ipython().run_line_magic('matplotlib', 'inline')
 
 
 
-# In[36]:
+# In[3]:
 
 
 leftbound = -75.6768
-rightbound = -75.6590
+rightbound = -75.5590
 upperbound = 40.1321
 lowerbound = 40.1166
 bbox = [(leftbound,lowerbound ), (rightbound,lowerbound), (rightbound,upperbound), (leftbound,upperbound)]
@@ -41,7 +41,7 @@ df = geopandas_osm.osm.query_osm('way', poly, recurse='down')
 df.plot()
 
 
-# In[37]:
+# In[4]:
 
 
 arr=["highway","residential", "primary", "secondary","tertiary","unclassified", "cycleway"]
@@ -55,7 +55,7 @@ df.plot()
 
 
 
-# In[108]:
+# In[27]:
 
 
 newdata = gpd.GeoDataFrame()
@@ -71,19 +71,19 @@ junctions = gpd.GeoDataFrame()
 junctions["geometry"]=None
 
 
-# In[9]:
+# In[6]:
 
 
 elevations = dict()
 
 
-# In[10]:
+# In[7]:
 
 
 print elevations
 
 
-# In[79]:
+# In[8]:
 
 
 all_coords_list = []
@@ -92,7 +92,7 @@ for geometry in df["geometry"]:
         all_coords_list.append(coord)
 
 
-# In[109]:
+# In[24]:
 
 
 def is_intersection(val):
@@ -147,13 +147,15 @@ def get_anchor_point(point1, point2, elev_diff):
     return (point1[0]+anchor[0], point1[1]+anchor[1])
 def reproject_segment(seg, anchor, end, elev_diff):
     #print "Beginning points: ",anchor, seg, end
-    new_points = []
+    new_points = [anchor]
     cur_point_elev = get_elev(anchor)
     cur_point_elev_diff = round((cur_point_elev-min(elev1, elev2))*.0005,7)
+    if(cur_point_elev_diff != 0.0):
+        p = get_anchor_point(anchor,end, cur_point_elev_diff)
+        elev_point_data.loc[elev_point_data.shape[0]] = [cur_point_elev-min(elev1, elev2), shapely.geometry.point.Point(p)]
+        new_points.append(p)
     print(cur_point_elev_diff)
-    p = get_anchor_point(anchor,end, cur_point_elev_diff)
-    elev_point_data.loc[elev_point_data.shape[0]] = [cur_point_elev-min(elev1, elev2), shapely.geometry.point.Point(p)]
-    new_points.append(p)
+    
     distance_arr = []
     for point in seg:
         a = get_vector(point, anchor)
@@ -173,17 +175,20 @@ def reproject_segment(seg, anchor, end, elev_diff):
         new_points.append(p)
     
     
-    cur_point_elev = get_elev(end)
-    cur_point_elev_diff = round((cur_point_elev-min(elev1, elev2))*.0005,7)
-    print(cur_point_elev_diff)
-    p = get_anchor_point(end,anchor, cur_point_elev_diff)
-    elev_point_data.loc[elev_point_data.shape[0]] = [cur_point_elev-min(elev1, elev2), shapely.geometry.point.Point(p)]
-    new_points.append(p)
     
     zipped = zip(new_points, distance_arr)
     sorted_zip = sorted(zipped, key=lambda pair: pair[1])
     new_points = [a[0] for a in sorted_zip]
-    new_points.insert(0, anchor)
+    
+    cur_point_elev = get_elev(end)
+    cur_point_elev_diff = round((cur_point_elev-min(elev1, elev2))*.0005,7)
+    print(cur_point_elev_diff)
+    if(cur_point_elev_diff != 0.0):
+        p = get_anchor_point(end,anchor, -1*cur_point_elev_diff)
+        elev_point_data.loc[elev_point_data.shape[0]] = [cur_point_elev-min(elev1, elev2), shapely.geometry.point.Point(p)]
+        new_points.append(p)
+    
+    
     new_points.append(end)
     
     #print "Projected points: ", new_points
@@ -219,7 +224,7 @@ def append_segment(name, seg_arr):
 
 
 
-# In[110]:
+# In[28]:
 
 
 new_index = -1
@@ -275,14 +280,14 @@ for index, geometry, name in zip(df.index.values, df["geometry"], df["name"]):
 
 
 
-# In[113]:
+# In[29]:
 
 
 base = streetnewdata.plot(color='white', edgecolor='black')
 newdata.plot(ax=base, color='green');
 df.plot(ax=base, color="orange")
-for elev, point in zip(elev_point_data["elevation"][::10], elev_point_data["geometry"][::10]):
-    base.annotate(str(round(elev)), (point.x, point.y))
+#for elev, point in zip(elev_point_data["elevation"][::10], elev_point_data["geometry"][::10]):
+#    base.annotate(str(round(elev)), (point.x, point.y))
 
 
 # In[ ]:
@@ -291,7 +296,7 @@ for elev, point in zip(elev_point_data["elevation"][::10], elev_point_data["geom
 
 
 
-# In[114]:
+# In[30]:
 
 
 import os
