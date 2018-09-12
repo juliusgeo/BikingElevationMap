@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[2]:
+# In[59]:
 
 
 import geopandas as gpd
@@ -13,6 +13,7 @@ import numpy as np
 import descartes as d
 import math
 import fiona
+import pickle
 get_ipython().run_line_magic('matplotlib', 'inline')
 
 
@@ -22,13 +23,19 @@ get_ipython().run_line_magic('matplotlib', 'inline')
 
 
 
-# In[ ]:
+# In[60]:
 
 
+def save_obj(obj, name ):
+    with open('obj/'+ name + '.pkl', 'wb') as f:
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
+def load_obj(name ):
+    with open('obj/' + name + '.pkl', 'rb') as f:
+        return pickle.load(f)
 
 
-
-# In[3]:
+# In[5]:
 
 
 leftbound = -75.6768
@@ -41,7 +48,7 @@ df = geopandas_osm.osm.query_osm('way', poly, recurse='down')
 df.plot()
 
 
-# In[4]:
+# In[6]:
 
 
 arr=["highway","residential", "primary", "secondary","tertiary","unclassified", "cycleway"]
@@ -55,7 +62,7 @@ df.plot()
 
 
 
-# In[69]:
+# In[68]:
 
 
 newdata = gpd.GeoDataFrame()
@@ -71,19 +78,19 @@ junctions = gpd.GeoDataFrame()
 junctions["geometry"]=None
 
 
-# In[6]:
+# In[69]:
 
 
-elevations = dict()
+elevations = load_obj("elevations")
 
 
-# In[7]:
+# In[ ]:
 
 
-print elevations
 
 
-# In[8]:
+
+# In[70]:
 
 
 all_coords_list = []
@@ -92,7 +99,7 @@ for geometry in df["geometry"]:
         all_coords_list.append(coord)
 
 
-# In[74]:
+# In[71]:
 
 
 def is_intersection(val):
@@ -147,9 +154,9 @@ def get_anchor_point(point1, point2, elev_diff):
     return (point1[0]+anchor[0], point1[1]+anchor[1])
 def reproject_segment(seg, anchor, end, elev_diff, elev1, elev2):
     #print "Beginning points: ",anchor, seg, end
-    if(end[1] >= anchor[1]):
+    if(end[0] >= anchor[0]):
         coeff = -1
-    else:
+    elif(end[0] < anchor[0]):
         coeff = 1
     new_points = [anchor]
     cur_point_elev = get_elev(anchor)
@@ -228,7 +235,7 @@ def append_segment(name, seg_arr):
 
 
 
-# In[75]:
+# In[72]:
 
 
 new_index = -1
@@ -284,14 +291,14 @@ for index, geometry, name in zip(df.index.values, df["geometry"], df["name"]):
 
 
 
-# In[76]:
+# In[64]:
 
 
 base = streetnewdata.plot(color='white', edgecolor='black')
 newdata.plot(ax=base, color='green');
 df.plot(ax=base, color="orange")
-#for elev, point in zip(elev_point_data["elevation"][::10], elev_point_data["geometry"][::10]):
-#    base.annotate(str(round(elev)), (point.x, point.y))
+for elev, point in zip(elev_point_data["elevation"][::10], elev_point_data["geometry"][::10]):
+    base.annotate(str(round(elev)), (point.x, point.y))
 
 
 # In[ ]:
@@ -300,7 +307,7 @@ df.plot(ax=base, color="orange")
 
 
 
-# In[77]:
+# In[73]:
 
 
 import os
@@ -315,6 +322,7 @@ newdata.to_file("out_map.geojson", driver="GeoJSON")
 streetnewdata.to_file("out_street_map.geojson", driver="GeoJSON")
 elev_point_data.to_file("out_elev_map.geojson", driver="GeoJSON")
 junctions.to_file("junctions.geojson", driver="GeoJSON")
+save_obj(elevations, "elevations")
 print("files saved")
 
 
